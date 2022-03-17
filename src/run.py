@@ -1,8 +1,7 @@
-import re
-from turtle import update
+
 import emoji
 from loguru import logger
-from telebot import custom_filters
+
 
 from src.bot import bot
 from src.constants import keyboards, keys, states
@@ -18,9 +17,6 @@ class Bot:
         self.bot = telebot
 
         # add custom filters
-        self.bot.add_custom_filter(IsAdmin())
-        self.bot.add_custom_filter(custom_filters.TextMatchFilter())
-        self.bot.add_custom_filter(custom_filters.TextStartsFilter())
 
         # register handlers
         self.handlers()
@@ -44,93 +40,7 @@ class Bot:
 
 
 
-        
-        # @self.bot.message_handler(regexp = keys.random_connect)
-        # def random_connect(message):
-        #     self.send_message(message.chat.id, 
-        #     '<strong>Connecting you to a random stranger ...</strong>',
-        #     reply_markup=keyboards.exit)
-        #     self.update_state(message.chat.id,states.random_connect)
-        #     other_user = db.users.find_one(
-                
-        #         {
-        #             'state': states.random_connect,
-        #         'chat.id': {'$ne': message.chat.id}
-        #         }
-                
-
-                
-        #     )
-        #     if not other_user:
-        #         return
-
-           
-
-        #     #update other user state
-        #     self.update_state(other_user['chat']['id'], states.connected)
-        #     self.update_state(other_user['chat']['id'],f'<strong>Connected with {other_user["chat"]["id"]}...</strong>')
-
-
-        #     #update current usr state
-        #     self.update_state(message.chat.id, states.connected)
-        #     self.send_message(message.chat.id, f'<strong>Connected with {other_user["chat"]["id"]}...</strong>')
-
-
-
-        #     #store connected users
-        #     db.users.update_one(
-        #         {
-        #             {'chat.id': message.chat.id},
-        #             {'$set': {'connected_with': other_user['chat']['id']}}
-        #         }
-        #     ) 
-        #     db.users.update_one(
-        #         {
-        #             {'chat.id': other_user['chat']['id']},
-        #             {'$set': {'connected_with': message.chat.id}}
-        #         }
-        #     ) 
-            
-            
-
-
-
-
-
-
-        # @self.bot.message_handler(regexp = keys.exit)
-        # def exit(message):
-        #     self.send_message(message.chat.id, keys.exit,reply_markup=keyboards.main)
-
-        #     #update other user state
-        #     self.update_state(message.chat.id , states.main)
-
-        #     other_user    = db.users.find_one(
-        #         {'chat_id': message.chat.id},
-
-        #     )
-        #     if not other_user.get('connected_with'):
-        #         return 
-
-        #     other_chat_id =other_user['connected_with']
-
-        #     self.update_state(other_chat_id, states.main)
-        #     self.send_message(other_chat_id, keys.exit,reply_markup=keyboards.main)
-
-
-
-
-
-
-        #     #remove connected users
-        #     db.users.update_one(
-        #         {'chat.id': message.chat.id},
-        #         {'$set': {'connected_with': None}})
-
-        #     db.users.update_one(
-        #         {'chat.id': other_chat_id},
-        #         {'$set': {'connected_with': None}})
-
+      
 
         @self.bot.message_handler(text=[keys.random_connect])
         def random_connect(message):
@@ -214,23 +124,13 @@ class Bot:
                 {'chat.id': other_chat_id},
                 {'$set': {'connected_to': None}}
             )
+            
 
 
 
 
            
 
-
-
-
-        @self.bot.message_handler(text=[keys.settings])
-        def settings(message):
-            pass
-
-
-        @self.bot.message_handler(is_admin=True)
-        def admin_of_group(message):
-            self.send_message(message.chat.id, '<strong>You are admin of this group!</strong>')
 
 
 
