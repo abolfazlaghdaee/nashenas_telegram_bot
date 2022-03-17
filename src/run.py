@@ -1,22 +1,28 @@
-
 import emoji
 from loguru import logger
-
+from telebot import custom_filters
 
 from src.bot import bot
 from src.constants import keyboards, keys, states
-from src.filters import IsAdmin
 from src.db import db
+from src.filters import IsAdmin
 
 
 class Bot:
     """
-    Template for telegram bot.
+    Telegram bot to connect two starangers randomly.
     """
-    def __init__(self, telebot):
+    def __init__(self, telebot, mongodb):
+        """
+        Initialize bot, database, handlers, and filters.
+        """
         self.bot = telebot
+        self.db = mongodb
 
         # add custom filters
+        self.bot.add_custom_filter(IsAdmin())
+        self.bot.add_custom_filter(custom_filters.TextMatchFilter())
+        self.bot.add_custom_filter(custom_filters.TextStartsFilter())
 
         # register handlers
         self.handlers()
@@ -26,21 +32,23 @@ class Bot:
         self.bot.infinity_polling()
 
     def handlers(self):
-        
         @self.bot.message_handler(commands=['start'])
         def start(message):
-                self.bot.send_message(message.chat.id, f"Howdy, how are you doing {message.chat.first_name}?",reply_markup=keyboards.main)
-                
-                db.users.update_one(
-                {'chat.id:': message.chat.id}, 
-                {'$set' :message.json},
-                 upsert=True
-                 )
-                self.update_state(message.chat.id, states.main)
+            """
+            /start command handler.
+            """
+            self.bot.send_message(
+                message.chat.id,
+                f"Hey <strong>{message.chat.first_name}</strong>!",
+                reply_markup=keyboards.main
+            )
 
-
-
-      
+            self.db.users.update_one(
+                {'chat.id': message.chat.id},
+                {'$set': message.json},
+                upsert=True
+            )
+            self.update_state(message.chat.id, states.main)
 
         @self.bot.message_handler(text=[keys.random_connect])
         def random_connect(message):
@@ -54,7 +62,7 @@ class Bot:
             )
             self.update_state(message.chat.id, states.random_connect)
 
-            other_user = db.users.find_one(
+            other_user = self.db.users.find_one(
                 {
                     'state': states.random_connect,
                     'chat.id': {'$ne': message.chat.id}
@@ -78,11 +86,11 @@ class Bot:
             )
 
             # store connected users
-            db.users.update_one(
+            self.db.users.update_one(
                 {'chat.id': message.chat.id},
                 {'$set': {'connected_to': other_user["chat"]["id"]}}
             )
-            db.users.update_one(
+            self.db.users.update_one(
                 {'chat.id': other_user["chat"]["id"]},
                 {'$set': {'connected_to': message.chat.id}}
             )
@@ -100,7 +108,7 @@ class Bot:
             self.update_state(message.chat.id, states.main)
 
             # get connected to user
-            other_user =db.users.find_one(
+            other_user = self.db.users.find_one(
                 {'chat.id': message.chat.id}
             )
             if not other_user.get('connected_to'):
@@ -116,36 +124,30 @@ class Bot:
             )
 
             # remove connected users
-            db.users.update_one(
+            self.db.users.update_one(
                 {'chat.id': message.chat.id},
                 {'$set': {'connected_to': None}}
             )
-            db.users.update_one(
+            self.db.users.update_one(
                 {'chat.id': other_chat_id},
                 {'$set': {'connected_to': None}}
             )
-            
-
-
-
-
-           
-
-
-
-
 
         @self.bot.message_handler(func=lambda ـ: True)
         def echo(message):
+            """ Echo message to other connected user.
+            """
+            user = self.db.users.find_one(
+                {'chat.id': message.chat.id}
+            )
 
-            user = db.users.find_one({'chat.id': message.chat.id})
-            if user['state'] != states.connected or  user['connected_to'] is None:
+            if ((not user) or (user['state'] != states.connected) or (user['connected_to'] is None)):
                 return
 
-
-            self.send_message(user['connected_to'], message.text)
-
-            
+            self.send_message(
+                user['connected_to'],
+                message.text,
+            )
 
     def send_message(self, chat_id, text, reply_markup=None, emojize=True):
         """
@@ -155,16 +157,17 @@ class Bot:
             text = emoji.emojize(text, use_aliases=True)
 
         self.bot.send_message(chat_id, text, reply_markup=reply_markup)
-    def update_state(self, chat_id, state ):
+
+    def update_state(self, chat_id, state):
         """
-        Update user state in database.
+        Update user state.
         """
-        db.users.update_one(
+        self.db.users.update_one(
             {'chat.id': chat_id},
             {'$set': {'state': state}}
         )
 
 if __name__ == '__main__':
     logger.info('Bot started')
-    nashenas_bot = Bot(telebot=bot)
+    nashenas_bot = Bot(telebot=bot, mongodb=db)
     nashenas_bot.run()
